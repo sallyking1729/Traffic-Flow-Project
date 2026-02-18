@@ -1,5 +1,6 @@
 # Traffic-Flow-Project
 University scientific computing project to create a cellular model of traffic down a single lane road and to then use take measurements and conduct a scientific investigation. 
+
 Script 1 
 Code to produce a space-time plot.
 The variables at the top can be altered to change different parameters within the model. ‘vmax’ = maximum speed the cars can reach
