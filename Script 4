@@ -1,0 +1,106 @@
+# -*- coding: utf-8 -*-
+"""
+Construction Zone
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+#np.random.seed(0xDECAFBAD) #optional code to set random seed
+vmax=5 #max velocity
+vmax_reduced=3 #maximum speed in construction zone
+cars=10#number of cars
+l=80 #length of road
+iterations=120 #number of iterations
+probability=0.4 #probability of car randomly breaking
+velocities=np.ones(cars)*vmax #initial velocities of cars
+#velocities=np.array([]) #optional line to set int velocity values manually rather than having them all at vmax
+positions=np.round(np.linspace(1,l,cars,endpoint=False)).astype(int) #initial positions of cars
+
+rw_start=10 #start point of roadworks
+rw_end=20 #end point of road works
+
+diagram=np.empty((0, l)) #emptry array to store iterations
+
+#function to make a row for the diagram of the current set up
+def row (velocities,positions,l,cars):
+    car_index=0
+    rows=np.full((1, l), '.', dtype=str)
+    while car_index<cars:
+        v1=velocities[car_index]
+        p1=positions[car_index]
+        rows[:,p1-1]=v1 #to fix later, index one off what it should be
+        car_index=car_index+1   
+    return(rows)
+
+#put intital positions and velocities onto the diagram
+rows=row(velocities,positions,l,cars)
+diagram=np.vstack([diagram,rows])
+
+#main loop to do iterations n number of timesteps
+n=0 #counter for iterations
+while n<iterations:
+    
+    #rule 1 - increase each car velocity by 1 if smaller than vmax
+    car_index=0
+    while car_index<cars:
+        if velocities[car_index]<vmax:
+            velocities[car_index]+=1
+        car_index=car_index+1
+        
+    #rule 2 - slow car down if it gets too close to the next car
+    car_index=0
+    while car_index<cars:
+        if car_index==cars-1:
+            next_index=0
+        else:
+            next_index=car_index+1
+        if positions[next_index]>positions[car_index]:
+            hops=np.abs(positions[next_index]-positions[car_index])
+        else:
+            hops=l-np.abs(positions[next_index]-positions[car_index])
+        spacing=hops-1
+        if velocities[car_index]>spacing:
+            velocities[car_index]=hops-1
+        car_index=car_index+1
+        
+    #rule 3 - randomly slow cars 
+    car_index=0
+    probabilities=np.random.rand(cars) #new set of probabilities for each iteration
+    sort_idx=np.argsort(positions) #sort positions left to right
+    inverse=np.argsort(sort_idx) #inverse sort to put array back in correct order after loop
+    sorted_velocities=velocities[sort_idx]
+    sorted_probabilities=probabilities[sort_idx]
+    while car_index<cars:
+        if sorted_velocities[car_index]>0 and probabilities[car_index]<probability:
+            sorted_velocities[car_index]=sorted_velocities[car_index]-1
+        car_index=car_index+1
+        velocities=sorted_velocities[inverse]
+    
+    #rule for construction zone reducing vmax to a lower value vmax_reduced
+    car_index=0
+    while car_index<cars:
+        if positions[car_index]>rw_start and positions[car_index]<rw_end:
+            if velocities[car_index]>vmax_reduced:
+                velocities[car_index]=vmax_reduced
+        car_index=car_index+1            
+   
+    #rule 4 - advance the car by velocity sites
+    car_index=0
+    while car_index<cars:
+        positions[car_index]=positions[car_index]+velocities[car_index]
+        if positions[car_index]>l: #looping
+            positions[car_index]=positions[car_index]-l   
+        car_index=car_index+1
+    n=n+1
+    rows=row(velocities,positions,l,cars)
+    diagram=np.vstack([diagram,rows])   
+
+#code to display the traffic as a grid with coloured cells representing velocity
+plt.figure()
+values= np.where(diagram == '.', np.nan, diagram).astype(float)
+plt.imshow(values, cmap=plt.cm.plasma)
+plt.colorbar(label='Velocity')
+plt.xlabel('Road Length')
+plt.ylabel('Time')
+plt.grid(False)
