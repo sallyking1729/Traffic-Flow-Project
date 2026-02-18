@@ -1,0 +1,98 @@
+# -*- coding: utf-8 -*-
+"""
+Calculating peak traffic flow
+"""
+import numpy as np
+import matplotlib.pyplot as plt
+
+vmax=4 #max velocity
+cars=1#number of cars
+l=250 #length of road
+iterations=120 #number of iterations
+probability=0.1 #probability of random breaking
+cars_max=249 #max density of cars
+#empty arrays to store points for plotting
+densities=np.array([])
+av_points=np.array([])
+
+while cars<cars_max:
+    n=0 #counter for iterations
+    diagram=np.empty((0, l)) #emptry array to store iterations
+    velocities=np.zeros(cars) #initial velocities of cars
+    positions=np.round(np.linspace(1,l,cars)).astype(int) #initial positions of cars
+
+    points=np.array([])
+    
+    #main loop to do iterations
+    while n<iterations:
+        
+        #rule 1 - increase each car velocity by 1 if smaller than vmax
+        car_index=0
+        while car_index<cars:
+            if velocities[car_index]<vmax:
+                velocities[car_index]+=1
+            car_index=car_index+1
+            
+        #rule 2 - slow car down if it gets too close to the next car
+        car_index=0
+        while car_index<cars:
+            if car_index==cars-1:
+                next_index=0
+            else:
+                next_index=car_index+1
+            if positions[next_index]>positions[car_index]:
+                hops=np.abs(positions[next_index]-positions[car_index])
+            else:
+                hops=l-np.abs(positions[next_index]-positions[car_index])
+            spacing=hops-1
+            if velocities[car_index]>spacing:
+                velocities[car_index]=hops-1
+            car_index=car_index+1
+            
+        #rule 3 - randomly slow cars 
+        car_index=0
+        probabilities=np.random.rand(cars) #new set of probabilities for each iteration
+        sort_idx=np.argsort(positions) #sort positions left to right
+        inverse=np.argsort(sort_idx) #inverse sort to put array back in correct order after loop
+        sorted_velocities=velocities[sort_idx]
+        sorted_probabilities=probabilities[sort_idx]
+        while car_index<cars:
+            if sorted_velocities[car_index]>0 and probabilities[car_index]<probability:
+                sorted_velocities[car_index]=sorted_velocities[car_index]-1
+            car_index=car_index+1
+            velocities=sorted_velocities[inverse]
+    
+        #rule 4 - advance the car by v sites
+        car_index=0
+        while car_index<cars:
+            positions[car_index]=positions[car_index]+velocities[car_index]
+            if positions[car_index]>l: #looping
+                positions[car_index]=positions[car_index]-l   
+            car_index=car_index+1
+        n=n+1
+    
+        density=cars/l
+        point=(1/l)*(np.sum(velocities))
+        points=np.append(points,point)
+        
+    av_point=np.mean(points)    
+    av_points=np.append(av_points,av_point)
+    densities=np.append(densities,density)   
+    
+    cars=cars+1
+    print(cars)
+ 
+#calculate an average of the top 10 flow values
+top_flow=np.sort(av_points)[-10:]
+top_average=np.mean(top_flow)    
+top_std=np.std(top_flow)
+
+#plot the figure 
+cmap = plt.cm.plasma
+plt.plot(densities,av_points,'*',color=cmap(0.2))  
+plt.xlabel('Traffic Density / cars per cell')
+plt.ylabel('Traffic Flow / cars per timestep')
+plt.axhline(top_average, linestyle='--', alpha=0.5,color=cmap(0.2),label=f'None Max Flow:{top_average:.2f}')
+plt.axhline(top_average+top_std, linestyle='--', alpha=0.5,color=cmap(0.2),label='Standard Deviation')
+plt.axhline(top_average-top_std, linestyle='--', alpha=0.5,color=cmap(0.2),label='Standard Deviation')
+plt.legend()
