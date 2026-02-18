@@ -1,0 +1,123 @@
+# -*- coding: utf-8 -*-
+"""
+Number of cars in traffic jams vs percentage of road covered by roadworks
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+#np.random.seed(0xDECAFBAD) #optional code to set random seed
+vmax=5 #max velocity
+vmax_reduced=2 #maximum speed in construction zone
+cars=10#number of cars
+l=80 #length of road
+iterations=1000 #number of iterations
+probability=0.3 #probability of car randomly breaking
+
+rw_start=45 #start point of roadworks
+
+#setting up array to store values in
+real_y_values=[]
+number_of_rw_lengths=45
+rw_lengths=np.linspace(1,number_of_rw_lengths,44).astype(int)
+
+m=0 #number of times to repeat to get average
+while m<20:
+    y_values=np.array([]) #to store number of slow cars each iteration
+    rw_length=1#end point of road works
+    while rw_length<number_of_rw_lengths:
+        
+        velocities=np.ones(cars)*vmax #initial velocities of cars
+        positions=np.round(np.linspace(1,l,cars,endpoint=False)).astype(int) #initial positions of cars
+        #main loop to do iterations n number of timesteps
+        n=0 #counter for iterations
+        stationary_cars=np.array([])
+        while n<iterations:
+            #rule 1 - increase each car velocity by 1 if smaller than vmax
+            car_index=0
+            while car_index<cars:
+                if velocities[car_index]<vmax:
+                    velocities[car_index]+=1
+                car_index=car_index+1
+                
+            #rule 2 - slow car down if it gets too close to the next car
+            car_index=0
+            while car_index<cars:
+                if car_index==cars-1:
+                    next_index=0
+                else:
+                    next_index=car_index+1
+                if positions[next_index]>positions[car_index]:
+                    hops=np.abs(positions[next_index]-positions[car_index])
+                else:
+                    hops=l-np.abs(positions[next_index]-positions[car_index])
+                spacing=hops-1
+                if velocities[car_index]>spacing:
+                    velocities[car_index]=hops-1
+                car_index=car_index+1
+                
+            #rule 3 - randomly slow cars 
+            car_index=0
+            probabilities=np.random.rand(cars) #new set of probabilities for each iteration
+            sort_idx=np.argsort(positions) #sort positions left to right
+            inverse=np.argsort(sort_idx) #inverse sort to put array back in correct order after loop
+            sorted_velocities=velocities[sort_idx]
+            sorted_probabilities=probabilities[sort_idx]
+            while car_index<cars:
+                if sorted_velocities[car_index]>0 and probabilities[car_index]<probability:
+                    sorted_velocities[car_index]=sorted_velocities[car_index]-1
+                car_index=car_index+1
+                velocities=sorted_velocities[inverse]
+            
+            #rule for construction zone reducing vmax to a lower value vmax_reduced
+            car_index=0
+            while car_index<cars:
+                if positions[car_index]>rw_start and positions[car_index]<rw_start+rw_length:
+                    if velocities[car_index]>vmax_reduced:
+                        velocities[car_index]=vmax_reduced
+                car_index=car_index+1            
+           
+            #rule 4 - advance the car by velocity sites
+            car_index=0
+            while car_index<cars:
+                positions[car_index]=positions[car_index]+velocities[car_index]
+                if positions[car_index]>l: #looping
+                    positions[car_index]=positions[car_index]-l   
+                car_index=car_index+1
+            #count the sumber of 'slow' cars on the road
+            stationary=np.count_nonzero(velocities<=1)
+            stationary_cars=np.append(stationary_cars,stationary)
+            n=n+1
+        #take the average number of slow cars for the entire time    
+        y_value=np.mean(stationary_cars)
+        y_values=np.append(y_values,y_value)
+        #increase the length of the construction zone
+        rw_length=rw_length+1
+    
+    real_y_values.append(y_values)
+    m=m+1
+ 
+#taking the average after m iterations
+real_y_values=np.array(real_y_values)
+average_y=real_y_values.mean(axis=0)  
+rw_lengths_percent=100*rw_lengths/l
+
+#calculate an average of the top 5 max number of slow cars
+top_idx=np.argsort(average_y)[-5:]
+top_rw_lengths=rw_lengths_percent[top_idx]
+top_average=np.mean(top_rw_lengths) 
+top_std=np.std(top_rw_lengths)
+    
+#code to plot the final graph
+plt.figure()
+cmap=plt.cm.plasma
+plt.plot(rw_lengths_percent,average_y*10,'*',color=cmap(0.2))
+plt.xlabel('Percentge of road covered with roadworks')
+plt.ylabel('Number of Cars in Traffic Jams')
+plt.axvline(top_average, linestyle='--', alpha=0.5,color=cmap(0.2),label=f'Peak Traffic Jams:{top_average:.0f}±{top_std:.0f}')
+plt.axvline(top_average-top_std, linestyle='--', alpha=0.5,color=cmap(0.45),label='Standard Deviation')
+plt.axvline(top_average+top_std, linestyle='--', alpha=0.5,color=cmap(0.45))
+plt.legend()
+
+
+
